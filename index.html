@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Masaniello লট ক্যালকুলেটর</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow ledger column — settings, then the "next trade" slip, then the trade log */
+:root{
+  --bg:#EEF1EC; --panel:#FFFFFF; --ink:#1B2420; --muted:#5E6B64; --line:#D5DCD5;
+  --gold:#94680E; --gold-soft:#F4E9D2; --win:#1E7A4C; --win-soft:#DFF1E6; --loss:#B33A2E; --loss-soft:#F7E1DE;
+  --f-body:"Hind Siliguri",system-ui,sans-serif; --f-num:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111614; --panel:#1A211E; --ink:#E6ECE8; --muted:#94A39B; --line:#2C3631;
+  --gold:#D9A949; --gold-soft:#2E2715; --win:#4CC28A; --win-soft:#16301F; --loss:#EC7A6C; --loss-soft:#361C18; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111614; --panel:#1A211E; --ink:#E6ECE8; --muted:#94A39B; --line:#2C3631;
+  --gold:#D9A949; --gold-soft:#2E2715; --win:#4CC28A; --win-soft:#16301F; --loss:#EC7A6C; --loss-soft:#361C18; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:560px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+h1{font-size:1.45rem;font-weight:700;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0;font-size:.92rem}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.label{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:.85rem;color:var(--muted)}
+input,select{font:inherit;font-family:var(--f-num);background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:9px 10px;width:100%;box-sizing:border-box}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.summary{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+.summary div{min-width:0}
+.summary .v{font-family:var(--f-num);font-size:1.05rem;font-weight:600}
+.slip{background:var(--gold-soft);border-color:var(--gold)}
+.slip-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.big{font-family:var(--f-num);font-size:2.2rem;font-weight:600;color:var(--gold);line-height:1.1}
+.lot{font-family:var(--f-num);font-size:1.25rem;font-weight:600}
+.meta{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:.9rem;margin-top:8px}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;background:var(--gold);transition:width .3s}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+button{font:inherit;font-weight:600;border-radius:8px;padding:11px;border:1px solid transparent;cursor:pointer}
+.bw{background:var(--win);color:var(--panel)}
+.bl{background:var(--loss);color:var(--panel)}
+.ghost{background:transparent;border-color:var(--line);color:var(--ink);font-weight:500;padding:8px 12px}
+.override{margin-top:10px}
+.override summary{cursor:pointer;color:var(--muted);font-size:.88rem}
+.override .grid{margin-top:8px}
+.done{padding:14px;border-radius:8px;font-weight:600;text-align:center}
+.done.ok{background:var(--win-soft);color:var(--win)}
+.done.bad{background:var(--loss-soft);color:var(--loss)}
+.log-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{text-align:right;font-weight:600;color:var(--muted);font-size:.75rem;letter-spacing:.04em;padding:6px 4px;border-bottom:1px solid var(--line)}
+td{text-align:right;padding:7px 4px;border-bottom:1px solid var(--line);font-family:var(--f-num);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+.pill{display:inline-block;min-width:22px;text-align:center;border-radius:4px;font-weight:600;font-size:.8rem;padding:1px 6px}
+.pw{background:var(--win-soft);color:var(--win)} .pl{background:var(--loss-soft);color:var(--loss)}
+.empty{color:var(--muted);font-size:.9rem;margin:0}
+.note{color:var(--muted);font-size:.82rem;margin:0}
+.row-btns{display:flex;gap:8px;flex-wrap:wrap}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.88rem}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Masaniello লট ক্যালকুলেটর</h1>
+    <p class="sub">কতটা ট্রেডে কয়টা উইন লাগবে ঠিক করুন। প্রতিটা ফলাফলের পর পরের ট্রেডের রিস্ক আর লট এখানে বের হবে।</p>
+  </header>
+
+  <section aria-labelledby="setH">
+    <div class="log-head" style="margin-bottom:0"><div class="label" id="setH">সাইকেল সেটআপ</div><button class="ghost" id="bResetAll" type="button">সব রিসেট</button></div>
+    <div class="confirm" id="resetAllConfirm" hidden style="margin-top:8px"><span>সেটিংস ডিফল্টে ফিরবে আর লগ মুছে যাবে। নিশ্চিত?</span><button class="bl" id="bResetAllYes" type="button" style="padding:7px 12px">হ্যাঁ, রিসেট</button><button class="ghost" id="bResetAllNo" type="button">না</button></div>
+    <div class="grid" style="margin-top:10px">
+      <div class="field"><label for="cap">মোট রিস্ক বাজেট ($)</label><input id="cap" type="number" min="1" step="1" value="100"></div>
+      <div class="field"><label for="rr">R:R (১ : ?)</label><input id="rr" type="number" min="0.1" step="0.1" value="2"></div>
+      <div class="field"><label for="nt">মোট ট্রেড</label><input id="nt" type="number" min="1" max="60" step="1" value="10"></div>
+      <div class="field"><label for="kw">লক্ষ্য উইন</label><input id="kw" type="number" min="1" step="1" value="3"></div>
+      <div class="field"><label for="inst">ইনস্ট্রুমেন্ট</label>
+        <select id="inst"><option value="100">XAUUSD (১ লট = ১০০ oz)</option><option value="1">BTCUSD (১ লট = ১ BTC)</option><option value="100000">ফরেক্স পেয়ার (১ লট = ১,০০,০০০)</option><option value="custom">কাস্টম</option></select></div>
+      <div class="field"><label for="cs">কন্ট্রাক্ট সাইজ</label><input id="cs" type="number" min="0.0001" step="any" value="100"></div>
+    </div>
+    <div class="summary">
+      <div><div class="label">টার্গেট পূরণ হলে</div><div class="v" id="sTarget">—</div></div>
+      <div><div class="label">লাভ</div><div class="v" id="sProfit" style="color:var(--win)">—</div></div>
+      <div><div class="label">লক্ষ্যের কম উইন হলে</div><div class="v" id="sLoss" style="color:var(--loss)">—</div></div>
+    </div>
+    <p class="note" id="setNote" style="margin-top:8px"></p>
+  </section>
+
+  <section class="slip" aria-labelledby="nextH" id="slip">
+    <div class="slip-top">
+      <div class="label" id="nextH">পরের ট্রেড · <span id="tradeNo">#1</span></div>
+      <div class="num" style="color:var(--muted);font-size:.9rem">বর্তমান: <b id="curCap" style="color:var(--ink)">$100.00</b></div>
+    </div>
+    <div id="liveBox">
+      <div class="label" style="margin-top:10px">রিস্ক (SL হিট হলে লস)</div>
+      <div class="big" id="risk">$0.00</div>
+      <div class="grid" style="margin-top:12px">
+        <div class="field"><label for="sl">SL দূরত্ব (দামে, যেমন গোল্ডে $৫)</label><input id="sl" type="number" min="0.0001" step="any" value="5"></div>
+        <div class="field"><div class="label" style="margin-top:2px">লট</div><div class="lot" id="lot">0.00</div><div class="note" id="lotNote"></div></div>
+      </div>
+      <div class="meta"><span>TP হলে লাভ: <b class="num" id="winAmt" style="color:var(--win)">$0</b></span><span>বাকি ট্রেড: <b class="num" id="left">10</b></span><span>আর উইন লাগবে: <b class="num" id="need">3</b></span></div>
+      <div class="bar" aria-hidden="true"><i id="prog" style="width:0%"></i></div>
+      <div class="actions">
+        <button class="bw" id="bWin" type="button">উইন (TP)</button>
+        <button class="bl" id="bLoss" type="button">লস (SL)</button>
+      </div>
+      <details class="override">
+        <summary>আসল লাভ/লস আলাদা হলে লিখুন (রাউন্ডিং, স্প্রেড)</summary>
+        <div class="grid">
+          <div class="field"><label for="actual">আসল ফলাফল $ (লসে মাইনাস)</label><input id="actual" type="number" step="0.01" placeholder="যেমন -10.40"></div>
+          <div class="field" style="justify-content:flex-end"><button class="ghost" id="bActual" type="button">এই অঙ্কে যোগ করুন</button></div>
+        </div>
+      </details>
+    </div>
+    <div id="doneWrap" hidden><div id="doneBox"></div><button class="ghost" id="bNewCycle" type="button" style="margin-top:10px;width:100%">নতুন সাইকেল শুরু করুন</button></div>
+  </section>
+
+  <section aria-labelledby="logH">
+    <div class="log-head">
+      <div class="label" id="logH">ট্রেড লগ</div>
+      <div class="row-btns"><button class="ghost" id="bUndo" type="button">শেষটা মুছুন</button><button class="ghost" id="bReset" type="button">নতুন সাইকেল</button></div>
+    </div>
+    <div class="confirm" id="resetConfirm" hidden><span>পুরো লগ মুছে নতুন সাইকেল শুরু করবেন?</span><button class="bl" id="bResetYes" type="button" style="padding:7px 12px">হ্যাঁ, মুছুন</button><button class="ghost" id="bResetNo" type="button">না</button></div>
+    <div class="tbl"><table><thead><tr><th>#</th><th>ফল</th><th>রিস্ক</th><th>লাভ/লস</th><th>ব্যালান্স</th></tr></thead><tbody id="logBody"></tbody></table></div>
+    <p class="empty" id="logEmpty">এখনো কোনো ট্রেড নেই। প্রথম ট্রেড শেষ হলে ওপরের উইন বা লস চাপুন।</p>
+  </section>
+
+  <p class="note">ট্রেড পুরো SL বা পুরো TP-তে শেষ হতে হবে। Break-even বা partial close করলে হিসাব মিলবে না, তখন আসল অঙ্কটা লিখে দিন, পরের রিস্ক নিজে থেকে ঠিক হয়ে যাবে। আর্থিক পরামর্শ নয়।</p>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const KEY="masaniello-v1";
+  let st={cap:100,rr:2,nt:10,kw:3,inst:"100",cs:100,sl:5,log:[]};
+  try{const s=JSON.parse(localStorage.getItem(KEY)||"null"); if(s&&typeof s==="object") st=Object.assign(st,s);}catch(e){}
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}};
+  const money=v=>(v<0?"-$":"$")+Math.abs(v).toFixed(2);
+
+  // f(n,w): fraction of final target needed now to guarantee it with w wins in n trades
+  function makeF(rr){
+    const memo=new Map();
+    const f=(n,w)=>{
+      if(w<=0) return 1; if(w>n) return 0;
+      const k=n+","+w; if(memo.has(k)) return memo.get(k);
+      const a=f(n-1,w-1), b=f(n-1,w), v=b+(a-b)/(1+rr);
+      memo.set(k,v); return v;
+    };
+    return f;
+  }
+
+  function state(){
+    const rr=st.rr, f=makeF(rr);
+    let cap=st.cap, n=st.nt, w=st.kw;
+    for(const t of st.log){ cap+=t.pl; n--; if(t.win) w--; }
+    const target = st.cap/f(st.nt,st.kw);
+    let risk=0, liveTarget=target;
+    if(w>0 && w<=n && cap>0){
+      liveTarget=cap/f(n,w);                     // rescale on actual capital
+      risk=(f(n-1,w-1)-f(n-1,w))*liveTarget/(1+rr);
+      risk=Math.min(risk,cap);
+    }
+    return {f,cap,n,w,target,liveTarget,risk};
+  }
+
+  const fields=["cap","rr","nt","kw","cs","sl"];
+  fields.forEach(k=>{$(k).value=st[k];});
+  $("inst").value=st.inst;
+
+  function readInputs(){
+    const v=k=>parseFloat($(k).value);
+    const cap=v("cap"),rr=v("rr"),nt=Math.round(v("nt")),kw=Math.round(v("kw")),cs=v("cs"),sl=v("sl");
+    let note="";
+    if(cap>0) st.cap=cap; if(rr>0) st.rr=rr; if(cs>0) st.cs=cs; if(sl>0) st.sl=sl;
+    if(nt>=1&&nt<=60) st.nt=nt; else note="মোট ট্রেড ১ থেকে ৬০-এর মধ্যে দিন।";
+    if(kw>=1&&kw<=st.nt) st.kw=kw; else note="লক্ষ্য উইন ১ থেকে মোট ট্রেডের মধ্যে হতে হবে।";
+    $("setNote").textContent=note;
+  }
+
+  function render(){
+    const s=state();
+    $("sTarget").textContent=money(s.target);
+    $("sProfit").textContent="+"+money(s.target-st.cap);
+    $("sLoss").textContent="-"+money(st.cap);
+    $("curCap").textContent=money(s.cap);
+    $("tradeNo").textContent="#"+(st.log.length+1);
+    const done=s.w<=0, failed=!done&&(s.w>s.n||s.cap<=0.005);
+    $("liveBox").hidden=done||failed; $("doneWrap").hidden=!(done||failed);
+    if(done){ $("doneBox").className="done ok"; $("doneBox").textContent="সাইকেল সম্পূর্ণ। ব্যালান্স "+money(s.cap)+" ("+(s.cap>=st.cap?"+":"")+money(s.cap-st.cap)+")। নতুন সাইকেল শুরু করুন।"; }
+    else if(failed){ $("doneBox").className="done bad"; $("doneBox").textContent="লক্ষ্যের উইন আর সম্ভব নয়। বাজেট শেষ: "+money(s.cap)+"। এখানে থামুন।"; }
+    else{
+      $("risk").textContent=money(s.risk);
+      $("winAmt").textContent="+"+money(s.risk*st.rr);
+      $("left").textContent=s.n; $("need").textContent=s.w;
+      const raw=s.risk/(st.sl*st.cs), lot=Math.floor(raw*100+1e-9)/100;
+      $("lot").textContent=lot.toFixed(2);
+      $("lotNote").textContent= lot<0.01 ? "০.০১-এর কম আসছে, SL ছোট করুন বা বাজেট বাড়ান।" : "এই লটে আসল রিস্ক "+money(lot*st.sl*st.cs);
+    }
+    $("prog").style.width=((st.kw-Math.max(s.w,0))/st.kw*100)+"%";
+    const body=$("logBody"); body.innerHTML="";
+    let bal=st.cap;
+    st.log.forEach((t,i)=>{ bal+=t.pl;
+      const tr=document.createElement("tr");
+      tr.innerHTML="<td>"+(i+1)+"</td><td><span class='pill "+(t.win?"pw'>W":"pl'>L")+"</span></td><td>"+money(t.risk)+"</td><td style='color:var("+(t.pl>=0?"--win":"--loss")+")'>"+(t.pl>=0?"+":"")+money(t.pl)+"</td><td>"+money(bal)+"</td>";
+      body.appendChild(tr);
+    });
+    $("logEmpty").hidden=st.log.length>0;
+    const locked=st.log.length>0;
+    ["cap","rr","nt","kw"].forEach(k=>{$(k).disabled=locked;});
+    save();
+  }
+
+  fields.forEach(k=>$(k).addEventListener("input",()=>{readInputs();render();}));
+  $("inst").addEventListener("change",()=>{st.inst=$("inst").value; if(st.inst!=="custom"){ $("cs").value=st.inst; st.cs=parseFloat(st.inst);} render();});
+
+  function add(win,pl){ const s=state(); st.log.push({win,risk:s.risk,pl}); $("actual").value=""; render(); }
+  $("bWin").addEventListener("click",()=>{const s=state(); add(true, s.risk*st.rr);});
+  $("bLoss").addEventListener("click",()=>{const s=state(); add(false,-s.risk);});
+  $("bActual").addEventListener("click",()=>{const v=parseFloat($("actual").value); if(isNaN(v)) return; add(v>0,v);});
+  $("bUndo").addEventListener("click",()=>{st.log.pop(); render();});
+  $("bReset").addEventListener("click",()=>{ if(!st.log.length) return; $("resetConfirm").hidden=false;});
+  $("bNewCycle").addEventListener("click",()=>{st.log=[]; render();});
+  $("bResetAll").addEventListener("click",()=>{$("resetAllConfirm").hidden=false;});
+  $("bResetAllNo").addEventListener("click",()=>{$("resetAllConfirm").hidden=true;});
+  $("bResetAllYes").addEventListener("click",()=>{
+    st={cap:100,rr:2,nt:10,kw:3,inst:"100",cs:100,sl:5,log:[]};
+    fields.forEach(k=>{$(k).value=st[k];}); $("inst").value=st.inst;
+    $("resetAllConfirm").hidden=true; $("resetConfirm").hidden=true; $("setNote").textContent=""; render();
+  });
+  $("bResetNo").addEventListener("click",()=>{$("resetConfirm").hidden=true;});
+  $("bResetYes").addEventListener("click",()=>{st.log=[]; $("resetConfirm").hidden=true; render();});
+
+  readInputs(); render();
+})();
+</script>
+
+</body>
+</html>
